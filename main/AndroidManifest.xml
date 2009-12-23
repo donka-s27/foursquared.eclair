@@ -14,6 +14,12 @@
     android:name="android.permission.INTERNET" />
   <uses-permission
     android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+  <uses-permission
+    android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
+  <uses-permission
+    android:name="android.permission.MANAGE_ACCOUNTS" />
+  <uses-permission
+    android:name="android.permission.GET_ACCOUNTS" />
   <uses-sdk
     android:minSdkVersion="3"
     android:targetSdkVersion="4" />
@@ -125,6 +131,12 @@
     <activity
       android:name=".LoginActivity"
       android:launchMode="singleInstance">
+      <intent-filter>
+        <action
+          android:name="com.joelapenna.foursquared.intent.action.LOGIN" />
+        <category
+          android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
     </activity>
 
 
@@ -261,6 +273,23 @@
 
     <service
       android:name=".app.FoursquaredService">
+    </service>
+  
+    <service
+      android:name=".app.AuthenticationService">
+      <intent-filter>
+        <action
+          android:name="android.accounts.AccountAuthenticator" />
+      </intent-filter>
+      <intent-filter>
+        <action
+          android:name="android.content.SyncAdapter" />
+      </intent-filter>
+      <meta-data
+        android:name="android.accounts.AccountAuthenticator"
+        android:resource="@xml/authenticator" />
+      <meta-data android:name="android.content.SyncAdapter" 
+        android:resource="@xml/syncadapter" /> 
     </service>
 
   </application>

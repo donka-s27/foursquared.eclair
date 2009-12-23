@@ -50,7 +50,7 @@
   <string
     name="feedback_subject">Foursquare for Android Feedback</string>
   <string
-    name="feedback_error">Couldn't find configured email client.</string>
+    name="feedback_error">Couldn\'t find configured email client.</string>
    <string
     name="feedback_more">If you are reporting problem please answer the questions below:</string>
    <string
@@ -216,13 +216,13 @@
   <string
     name="preferences_share_summary_on">By default, tell my friends when I check-in.</string>
    <string
-    name="preferences_share_summary_off">By default, don't tell my friends when I check-in.</string>
+    name="preferences_share_summary_off">By default, don\'t tell my friends when I check-in.</string>
    <string
     name="preferences_twitter_checkin_title">Tell Twitter</string>
    <string
     name="preferences_twitter_checkin_summary_on">By default, tweet my checkins.</string>
    <string
-    name="preferences_twitter_checkin_summary_off">By default, don't tweet my checkins.</string>
+    name="preferences_twitter_checkin_summary_off">By default, don\'t tweet my checkins.</string>
     <string
     name="preferences_immediate_checkin_title">Checkin without prompt</string>
    <string
