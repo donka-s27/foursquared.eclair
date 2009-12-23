@@ -9,6 +9,7 @@ import com.joelapenna.foursquare.error.FoursquareError;
 import com.joelapenna.foursquare.error.FoursquareException;
 import com.joelapenna.foursquare.types.City;
 import com.joelapenna.foursquare.types.User;
+import com.joelapenna.foursquared.app.AuthenticationService;
 import com.joelapenna.foursquared.app.FoursquaredService;
 import com.joelapenna.foursquared.location.BestLocationListener;
 import com.joelapenna.foursquared.location.CityLocationListener;
@@ -18,6 +19,8 @@ import com.joelapenna.foursquared.util.JavaLoggingHandler;
 import com.joelapenna.foursquared.util.NullDiskCache;
 import com.joelapenna.foursquared.util.RemoteResourceManager;
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.app.Application;
 import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
@@ -208,8 +211,17 @@ public class Foursquared extends Application {
         }
 
         if (FoursquaredSettings.DEBUG) Log.d(TAG, "loadCredentials()");
-        String phoneNumber = mPrefs.getString(Preferences.PREFERENCE_LOGIN, null);
-        String password = mPrefs.getString(Preferences.PREFERENCE_PASSWORD, null);
+        
+        AccountManager accountManager = AccountManager.get(this);
+        Account[] accounts = accountManager.getAccountsByType(AuthenticationService.ACCOUNT_TYPE);
+        assert (accounts.length == 1);
+        String phoneNumber = null;
+        String password = null;
+        for (Account account : accounts) {
+            phoneNumber = account.name;
+            password = accountManager.getPassword(account);
+        }
+        
         mFoursquare.setCredentials(phoneNumber, password);
         if (mFoursquare.hasLoginAndPassword()) {
             sendBroadcast(new Intent(INTENT_ACTION_LOGGED_IN));
