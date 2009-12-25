@@ -4,6 +4,7 @@
 
 package com.joelapenna.foursquared.app;
 
+import com.joelapenna.foursquare.Foursquare;
 import com.joelapenna.foursquared.LoginActivity;
 
 import android.accounts.AbstractAccountAuthenticator;
@@ -49,27 +50,30 @@ public class AuthenticationService extends Service {
         }
     }
 
-    public static Bundle createSystemAccount(Context context, String username, String password)
+    public static Bundle createSystemAccount(Context context, String name, String password)
             throws OperationCanceledException, AuthenticatorException, IOException {
-        Log.d(TAG, "createSystemAccount: " + username);
+        Log.d(TAG, "createSystemAccount: " + name);
         Bundle options = new Bundle();
-        options.putString(OPTION_USERNAME, username);
+        options.putString(OPTION_USERNAME, name);
         options.putString(OPTION_PASSWORD, password);
-        AccountManagerFuture<Bundle> future = AccountManager.get(context).addAccount(ACCOUNT_TYPE, null,
-                null, options, null, null, null);
+        AccountManagerFuture<Bundle> future = AccountManager.get(context).addAccount(ACCOUNT_TYPE,
+                null, null, options, null, null, null);
         return future.getResult(); // Blocks
-        //return null;
+    }
+
+    public static Boolean removeSystemAccount(Context context, String name)
+            throws OperationCanceledException, AuthenticatorException, IOException {
+        Account account = new Account(name, ACCOUNT_TYPE);
+        AccountManagerFuture<Boolean> future = AccountManager.get(context).removeAccount(account,
+                null, null);
+        return future.getResult();
     }
 
     /**
      * @author Joe LaPenna (joe@joelapenna.com)
-     *
      */
     private final class SyncAdapter extends AbstractThreadedSyncAdapter {
-        /**
-         * @param context
-         * @param autoInitialize
-         */
+
         private SyncAdapter(Context context, boolean autoInitialize) {
             super(context, autoInitialize);
         }
@@ -77,7 +81,7 @@ public class AuthenticationService extends Service {
         @Override
         public void onPerformSync(Account account, Bundle extras, String authority,
                 ContentProviderClient provider, SyncResult syncResult) {
-
+            Log.d(TAG, "onPerformSync");
         }
     }
 
@@ -92,32 +96,38 @@ public class AuthenticationService extends Service {
                 String authTokenType, String[] requiredFeatures, Bundle options)
                 throws NetworkErrorException {
             Log.d(TAG, "addAccount");
+            Bundle result = new Bundle();
 
+            // If we're called with a username/password from the app UI.
             if (options != null && options.containsKey(OPTION_USERNAME)
                     && options.containsKey(OPTION_PASSWORD)) {
-                // If we're called with a username/password from the app UI.
                 Log.d(TAG, "called from app UI");
                 final Account account = new Account(options.getString(OPTION_USERNAME),
                         ACCOUNT_TYPE);
-                AccountManager.get(AuthenticationService.this).addAccountExplicitly(account,
-                        options.getString(OPTION_PASSWORD), null);
-                Bundle result = new Bundle();
-                result.putString(AccountManager.KEY_ACCOUNT_NAME, options
-                        .getString(OPTION_USERNAME));
-                result.putString(AccountManager.KEY_ACCOUNT_TYPE, ACCOUNT_TYPE);
-                return result;
+                boolean added = AccountManager.get(AuthenticationService.this)
+                        .addAccountExplicitly(account, options.getString(OPTION_PASSWORD), null);
 
-            } else {
-                // If we've come from the AccountManager.
+                if (added) {
+                    Log.d(TAG, "Account added, returning bundle");
+                    result.putString(AccountManager.KEY_ACCOUNT_NAME, account.name);
+                    result.putString(AccountManager.KEY_ACCOUNT_TYPE, account.type);
+
+                } else {
+                    Log.d(TAG, "Account add failed, returning bundle");
+                    result.putInt(AccountManager.KEY_ERROR_CODE, -1);
+                    result.putString(AccountManager.KEY_ERROR_MESSAGE, "Error!");
+                }
+
+            } else { // If we've come from the AccountManager.
                 Log.d(TAG, "called from account manager");
                 Intent loginActivityIntent = new Intent(LoginActivity.ACTION_LOGIN);
                 loginActivityIntent.putExtra(AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE,
                         response);
 
-                Bundle result = new Bundle();
                 result.putParcelable(AccountManager.KEY_INTENT, loginActivityIntent);
-                return result;
             }
+
+            return result;
         }
 
         @Override

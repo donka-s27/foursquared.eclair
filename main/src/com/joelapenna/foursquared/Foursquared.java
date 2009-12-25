@@ -127,7 +127,7 @@ public class Foursquared extends Application {
         new LoggedInOutBroadcastReceiver().register();
 
         // Log into Foursquare, if we can.
-        loadFoursquare();
+        mFoursquare = loadFoursquare();
     }
 
     public boolean isReady() {
@@ -201,13 +201,14 @@ public class Foursquared extends Application {
         mTaskHandler.sendEmptyMessage(TaskHandler.MESSAGE_UPDATE_USER);
     }
 
-    private void loadFoursquare() {
+    private Foursquare loadFoursquare() {
         // Try logging in and setting up foursquare oauth, then user
         // credentials.
+        Foursquare foursquare;
         if (FoursquaredSettings.USE_DEBUG_SERVER) {
-            mFoursquare = new Foursquare(Foursquare.createHttpApi("10.0.2.2:8080", mVersion, false));
+            foursquare = new Foursquare(Foursquare.createHttpApi("10.0.2.2:8080", mVersion, false));
         } else {
-            mFoursquare = new Foursquare(Foursquare.createHttpApi(mVersion, false));
+            foursquare = new Foursquare(Foursquare.createHttpApi(mVersion, false));
         }
 
         if (FoursquaredSettings.DEBUG) Log.d(TAG, "loadCredentials()");
@@ -222,12 +223,13 @@ public class Foursquared extends Application {
             password = accountManager.getPassword(account);
         }
         
-        mFoursquare.setCredentials(phoneNumber, password);
-        if (mFoursquare.hasLoginAndPassword()) {
+        foursquare.setCredentials(phoneNumber, password);
+        if (foursquare.hasLoginAndPassword()) {
             sendBroadcast(new Intent(INTENT_ACTION_LOGGED_IN));
         } else {
             sendBroadcast(new Intent(INTENT_ACTION_LOGGED_OUT));
         }
+        return foursquare;
     }
 
     private void loadResourceManagers() {
