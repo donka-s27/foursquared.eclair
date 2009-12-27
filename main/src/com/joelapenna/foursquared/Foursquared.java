@@ -7,12 +7,12 @@ package com.joelapenna.foursquared;
 import com.joelapenna.foursquare.Foursquare;
 import com.joelapenna.foursquare.error.FoursquareError;
 import com.joelapenna.foursquare.error.FoursquareException;
-import com.joelapenna.foursquare.types.City;
 import com.joelapenna.foursquare.types.User;
 import com.joelapenna.foursquared.app.AuthenticationService;
 import com.joelapenna.foursquared.app.FoursquaredService;
+import com.joelapenna.foursquared.error.LocationException;
 import com.joelapenna.foursquared.location.BestLocationListener;
-import com.joelapenna.foursquared.location.CityLocationListener;
+import com.joelapenna.foursquared.location.LocationUtils;
 import com.joelapenna.foursquared.preferences.Preferences;
 import com.joelapenna.foursquared.util.DumpcatcherHelper;
 import com.joelapenna.foursquared.util.JavaLoggingHandler;
@@ -76,13 +76,6 @@ public class Foursquared extends Application {
     private Foursquare mFoursquare;
 
     private BestLocationListener mBestLocationListener = new BestLocationListener();
-    private CityLocationListener mCityLocationListener = new CityLocationListener() {
-        @Override
-        public void onLocationChanged(Location location) {
-            requestSwitchCity(location);
-            mBestLocationListener.onLocationChanged(location);
-        }
-    };
 
     @Override
     public void onCreate() {
@@ -131,10 +124,7 @@ public class Foursquared extends Application {
     }
 
     public boolean isReady() {
-        return getFoursquare().hasLoginAndPassword() //
-                && !TextUtils.isEmpty(getUserId()) //
-                && !TextUtils.isEmpty(getUserCity().getId()) //
-        ;
+        return getFoursquare().hasLoginAndPassword() && !TextUtils.isEmpty(getUserId());
     }
 
     public Foursquare getFoursquare() {
@@ -143,10 +133,6 @@ public class Foursquared extends Application {
 
     public String getUserId() {
         return Preferences.getUserId(mPrefs);
-    }
-
-    public City getUserCity() {
-        return Preferences.getUserCity(mPrefs);
     }
 
     public String getVersion() {
@@ -162,15 +148,17 @@ public class Foursquared extends Application {
         return mRemoteResourceManager;
     }
 
-    public BestLocationListener requestLocationUpdates() {
-        mBestLocationListener
-                .register((LocationManager) getSystemService(Context.LOCATION_SERVICE));
+    public BestLocationListener requestLocationUpdates(boolean gps) {
+        mBestLocationListener.register(
+                (LocationManager) getSystemService(Context.LOCATION_SERVICE), gps);
         return mBestLocationListener;
     }
 
     public BestLocationListener requestLocationUpdates(Observer observer) {
         mBestLocationListener.addObserver(observer);
-        return this.requestLocationUpdates();
+        mBestLocationListener.register(
+                (LocationManager) getSystemService(Context.LOCATION_SERVICE), true);
+        return mBestLocationListener;
     }
 
     public void removeLocationUpdates() {
@@ -183,13 +171,12 @@ public class Foursquared extends Application {
         this.removeLocationUpdates();
     }
 
-    public Location getLastKnownLocation() {
-        return mBestLocationListener.getLastKnownLocation();
-    }
-
-    public void requestSwitchCity(Location location) {
-        mTaskHandler.sendMessage( //
-                mTaskHandler.obtainMessage(TaskHandler.MESSAGE_SWITCH_CITY, location));
+    public Location getLastKnownLocation() throws LocationException {
+        Location location = mBestLocationListener.getLastKnownLocation();
+        if (location == null) {
+            throw new LocationException();
+        }
+        return location;
     }
 
     public void requestStartService() {
@@ -291,18 +278,9 @@ public class Foursquared extends Application {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (INTENT_ACTION_LOGGED_IN.equals(intent.getAction())) {
-                // Watch for city changes.
-                mCityLocationListener
-                        .register((LocationManager) getSystemService(Context.LOCATION_SERVICE));
-
                 // Pull latest user info.
                 mTaskHandler.sendEmptyMessage(TaskHandler.MESSAGE_UPDATE_USER);
-
-            } else if (INTENT_ACTION_LOGGED_OUT.equals(intent.getAction())) {
-                mCityLocationListener
-                        .unregister((LocationManager) getSystemService(Context.LOCATION_SERVICE));
             }
-
         }
 
         public void register() {
@@ -319,7 +297,6 @@ public class Foursquared extends Application {
 
     private class TaskHandler extends Handler {
 
-        private static final int MESSAGE_SWITCH_CITY = 0;
         private static final int MESSAGE_UPDATE_USER = 1;
         private static final int MESSAGE_START_SERVICE = 2;
 
@@ -333,30 +310,39 @@ public class Foursquared extends Application {
             if (DEBUG) Log.d(TAG, "handleMessage: " + msg.what);
 
             switch (msg.what) {
-                case MESSAGE_SWITCH_CITY:
-                    try {
-                        City city = Preferences.switchCity(mFoursquare, (Location) msg.obj);
-                        Editor editor = mPrefs.edit();
-                        Preferences.storeCity(editor, city);
-                        editor.commit();
-                    } catch (FoursquareError e) {
-                        if (DEBUG) Log.d(TAG, "FoursquareError", e);
-                        // TODO Auto-generated catch block
-                    } catch (FoursquareException e) {
-                        if (DEBUG) Log.d(TAG, "FoursquareException", e);
-                        // TODO Auto-generated catch block
-                    } catch (IOException e) {
-                        if (DEBUG) Log.d(TAG, "IOException", e);
-                        // TODO Auto-generated catch block
-                    }
-                    return;
-
                 case MESSAGE_UPDATE_USER:
                     try {
-                        User user = getFoursquare().user(null, false, false);
+                        // Update user info
+                        Log.d(TAG, "Updating user.");
+                        // Use location when requesting user information, if we
+                        // have it.
+                        Foursquare.Location location = null;
+                        try {
+                            location = LocationUtils
+                                    .createFoursquareLocation(getLastKnownLocation());
+                        } catch (LocationException e) {
+                            // Best effort...
+                        }
+                        User user = getFoursquare().user(null, false, false, location);
                         Editor editor = mPrefs.edit();
                         Preferences.storeUser(editor, user);
                         editor.commit();
+
+                        if (location == null) {
+                            // Pump the location listener, we don't have a
+                            // location in our listener yet.
+                            Log.d(TAG, "Priming Location from user city.");
+                            Location primeLocation = new Location("foursquare");
+                            // Very inaccurate, right?
+                            primeLocation.setAccuracy(10000);
+                            primeLocation.setTime(System.currentTimeMillis());
+                            primeLocation.setLatitude(Double
+                                    .parseDouble(user.getCity().getGeolat()));
+                            primeLocation.setLongitude(Double.parseDouble(user.getCity()
+                                    .getGeolong()));
+                            mBestLocationListener.updateLocation(primeLocation);
+                        }
+
                     } catch (FoursquareError e) {
                         if (DEBUG) Log.d(TAG, "FoursquareError", e);
                         // TODO Auto-generated catch block

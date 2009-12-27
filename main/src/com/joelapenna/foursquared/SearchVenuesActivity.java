@@ -9,6 +9,8 @@ import com.joelapenna.foursquare.error.FoursquareException;
 import com.joelapenna.foursquare.types.City;
 import com.joelapenna.foursquare.types.Group;
 import com.joelapenna.foursquare.types.Venue;
+import com.joelapenna.foursquared.error.LocationException;
+import com.joelapenna.foursquared.location.LocationUtils;
 import com.joelapenna.foursquared.providers.VenueQuerySuggestionsProvider;
 import com.joelapenna.foursquared.util.Comparators;
 import com.joelapenna.foursquared.util.MenuUtils;
@@ -53,7 +55,6 @@ import java.util.Observable;
  */
 public class SearchVenuesActivity extends TabActivity {
     static final String TAG = "SearchVenuesActivity";
-
     static final boolean DEBUG = FoursquaredSettings.DEBUG;
 
     public static final String QUERY_NEARBY = null;
@@ -123,7 +124,7 @@ public class SearchVenuesActivity extends TabActivity {
     @Override
     public void onResume() {
         super.onResume();
-        ((Foursquared) getApplication()).requestLocationUpdates();
+        ((Foursquared) getApplication()).requestLocationUpdates(true);
         if (mSearchHolder.results == null && mSearchTask == null) {
             mSearchTask = (SearchTask) new SearchTask().execute();
         }
@@ -402,25 +403,13 @@ public class SearchVenuesActivity extends TabActivity {
             }
         }
 
-        public Group<Group<Venue>> search() throws FoursquareException, IOException {
-            Location location = ((Foursquared) getApplication()).getLastKnownLocation();
+        public Group<Group<Venue>> search() throws FoursquareException, LocationException,
+                IOException {
             Foursquare foursquare = ((Foursquared) getApplication()).getFoursquare();
-            String geolat;
-            String geolong;
-            if (location == null) {
-                // Foursquare requires a lat, lng for a venue search, so we have
-                // to pull it from the
-                // server if we cannot determine it locally.
-                City city = foursquare.user(null, false, false).getCity();
-                geolat = String.valueOf(city.getGeolat());
-                geolong = String.valueOf(city.getGeolong());
-            } else {
-                if (DEBUG) Log.d(TAG, "Searching with location: " + location);
-                geolat = String.valueOf(location.getLatitude());
-                geolong = String.valueOf(location.getLongitude());
-            }
-            Group<Group<Venue>> groups = foursquare.venues(
-                    new Foursquare.Location(geolat, geolong), mSearchHolder.query, 30);
+            Location location = ((Foursquared) getApplication()).getLastKnownLocation();
+
+            Group<Group<Venue>> groups = foursquare.venues(LocationUtils
+                    .createFoursquareLocation(location), mSearchHolder.query, 30);
             for (int i = 0; i < groups.size(); i++) {
                 Collections.sort(groups.get(i), Comparators.getVenueDistanceComparator());
             }
@@ -430,7 +419,6 @@ public class SearchVenuesActivity extends TabActivity {
 
     private static class SearchHolder {
         Group<Group<Venue>> results;
-
         String query;
     }
 

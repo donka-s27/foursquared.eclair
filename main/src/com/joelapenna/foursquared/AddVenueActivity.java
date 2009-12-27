@@ -4,10 +4,8 @@
 
 package com.joelapenna.foursquared;
 
-import com.joelapenna.foursquare.types.City;
 import com.joelapenna.foursquare.types.Venue;
 import com.joelapenna.foursquare.util.VenueUtils;
-import com.joelapenna.foursquared.location.LocationUtils;
 import com.joelapenna.foursquared.util.NotificationsUtil;
 
 import android.app.Activity;
@@ -50,8 +48,7 @@ public class AddVenueActivity extends Activity {
     private EditText mPhoneEditText;
     private Button mAddVenueButton;
 
-    private EditText[] mRequiredFields;
-    private TextWatcher mRequiredFieldsWatcher = new TextWatcher() {
+    private TextWatcher mNameFieldWatcher = new TextWatcher() {
         @Override
         public void afterTextChanged(Editable s) {
         }
@@ -62,14 +59,7 @@ public class AddVenueActivity extends Activity {
 
         @Override
         public void onTextChanged(CharSequence s, int start, int before, int count) {
-            boolean requiredFieldsValid = true;
-            for (int i = 0; i < mRequiredFields.length; i++) {
-                if (TextUtils.isEmpty(mRequiredFields[i].getText())) {
-                    requiredFieldsValid = false;
-                    break;
-                }
-            }
-            mAddVenueButton.setEnabled(requiredFieldsValid && mStateHolder.foursquareCity != null);
+            mAddVenueButton.setEnabled(!TextUtils.isEmpty(s));
         }
     };
 
@@ -89,14 +79,14 @@ public class AddVenueActivity extends Activity {
         setContentView(R.layout.add_venue_activity);
         registerReceiver(mLoggedOutReceiver, new IntentFilter(Foursquared.INTENT_ACTION_LOGGED_OUT));
 
-        mAddVenueButton = (Button)findViewById(R.id.addVenueButton);
-        mNameEditText = (EditText)findViewById(R.id.nameEditText);
-        mAddressEditText = (EditText)findViewById(R.id.addressEditText);
-        mCrossstreetEditText = (EditText)findViewById(R.id.crossstreetEditText);
-        mCityEditText = (EditText)findViewById(R.id.cityEditText);
-        mStateEditText = (EditText)findViewById(R.id.stateEditText);
-        mZipEditText = (EditText)findViewById(R.id.zipEditText);
-        mPhoneEditText = (EditText)findViewById(R.id.phoneEditText);
+        mAddVenueButton = (Button) findViewById(R.id.addVenueButton);
+        mNameEditText = (EditText) findViewById(R.id.nameEditText);
+        mAddressEditText = (EditText) findViewById(R.id.addressEditText);
+        mCrossstreetEditText = (EditText) findViewById(R.id.crossstreetEditText);
+        mCityEditText = (EditText) findViewById(R.id.cityEditText);
+        mStateEditText = (EditText) findViewById(R.id.stateEditText);
+        mZipEditText = (EditText) findViewById(R.id.zipEditText);
+        mPhoneEditText = (EditText) findViewById(R.id.phoneEditText);
 
         mAddVenueButton.setOnClickListener(new OnClickListener() {
 
@@ -106,35 +96,25 @@ public class AddVenueActivity extends Activity {
             }
         });
 
-        mRequiredFields = new EditText[] {
-                mNameEditText, //
-                mAddressEditText, //
-                mCityEditText, //
-                mStateEditText, //
-        };
-
-        for (int i = 0; i < mRequiredFields.length; i++) {
-            mRequiredFields[i].addTextChangedListener(mRequiredFieldsWatcher);
-        }
+        mNameEditText.addTextChangedListener(mNameFieldWatcher);
 
         if (getLastNonConfigurationInstance() != null) {
-            setFields((StateHolder)getLastNonConfigurationInstance());
+            setFields((StateHolder) getLastNonConfigurationInstance());
         } else {
             new AddressLookupTask().execute();
         }
-        mStateHolder.foursquareCity = ((Foursquared)getApplication()).getUserCity();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        ((Foursquared)getApplication()).requestLocationUpdates();
+        ((Foursquared) getApplication()).requestLocationUpdates(true);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        ((Foursquared)getApplication()).removeLocationUpdates();
+        ((Foursquared) getApplication()).removeLocationUpdates();
     }
 
     @Override
@@ -154,7 +134,8 @@ public class AddVenueActivity extends Activity {
 
         if (fields.geocodedAddress != null) {
 
-            // Don't fill in the street unless we're reasonably confident we know where the user is.
+            // Don't fill in the street unless we're reasonably confident we
+            // know where the user is.
             String address = fields.geocodedAddress.getAddressLine(0);
             double accuracy = fields.location.getAccuracy();
             if (address != null && (accuracy > 0.0 && accuracy < MINIMUM_ACCURACY_FOR_ADDRESS)) {
@@ -197,14 +178,13 @@ public class AddVenueActivity extends Activity {
         protected Venue doInBackground(Void... params) {
             // name, address, crossstreet, city, state, zip, cityid, phone
             try {
-                return ((Foursquared)getApplication()).getFoursquare().addVenue( //
+                return ((Foursquared) getApplication()).getFoursquare().addVenue( //
                         mNameEditText.getText().toString(), //
                         mAddressEditText.getText().toString(), //
                         mCrossstreetEditText.getText().toString(), //
                         mCityEditText.getText().toString(), //
                         mStateEditText.getText().toString(), //
                         mZipEditText.getText().toString(), //
-                        mStateHolder.foursquareCity.getId(), //
                         mPhoneEditText.getText().toString(), null);
             } catch (Exception e) {
                 if (DEBUG) Log.d(TAG, "Exception doing add venue", e);
@@ -249,12 +229,9 @@ public class AddVenueActivity extends Activity {
         protected StateHolder doInBackground(Void... params) {
             StateHolder stateHolder = new StateHolder();
 
-            stateHolder.location = ((Foursquared)getApplication()).getLastKnownLocation();
             try {
+                stateHolder.location = ((Foursquared) getApplication()).getLastKnownLocation();
                 if (DEBUG) Log.d(TAG, stateHolder.location.toString());
-
-                stateHolder.foursquareCity = ((Foursquared)getApplication()).getFoursquare()
-                        .checkCity(LocationUtils.createFoursquareLocation(stateHolder.location));
 
                 Geocoder geocoder = new Geocoder(AddVenueActivity.this);
                 stateHolder.geocodedAddress = geocoder.getFromLocation(
@@ -291,7 +268,6 @@ public class AddVenueActivity extends Activity {
     }
 
     private static class StateHolder {
-        City foursquareCity = null;
         Location location = null;
         Address geocodedAddress = null;
     }

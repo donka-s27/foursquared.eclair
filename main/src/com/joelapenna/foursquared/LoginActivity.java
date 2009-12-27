@@ -74,7 +74,7 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     @Override
     public void onResume() {
         super.onResume();
-        ((Foursquared) getApplication()).requestLocationUpdates();
+        ((Foursquared) getApplication()).requestLocationUpdates(false);
     }
 
     @Override
@@ -227,14 +227,11 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         @Override
         protected void onPostExecute(Boolean loggedIn) {
             if (DEBUG) Log.d(TAG, "onPostExecute(): " + loggedIn);
+            Foursquared foursquared = (Foursquared) getApplication();
 
             if (loggedIn) {
                 sendBroadcast(new Intent(Foursquared.INTENT_ACTION_LOGGED_IN));
                 Foursquared foursquared = (Foursquared) getApplication();
-                String city = foursquared.getUserCity().getName();
-                Toast.makeText(
-                        //
-                        LoginActivity.this, getString(R.string.login_welcome_toast, city),
                         Toast.LENGTH_LONG).show();
 
                 // Launch the service to update any widgets, etc.
