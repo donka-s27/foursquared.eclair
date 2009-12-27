@@ -231,8 +231,8 @@ public class LoginActivity extends AccountAuthenticatorActivity {
 
             if (loggedIn) {
                 sendBroadcast(new Intent(Foursquared.INTENT_ACTION_LOGGED_IN));
-                Foursquared foursquared = (Foursquared) getApplication();
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(foursquared, getString(R.string.login_welcome_toast),
+                        Toast.LENGTH_SHORT).show();
 
                 // Launch the service to update any widgets, etc.
                 foursquared.requestStartService();
