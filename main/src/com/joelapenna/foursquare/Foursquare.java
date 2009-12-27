@@ -9,12 +9,14 @@ import com.joelapenna.foursquare.error.FoursquareError;
 import com.joelapenna.foursquare.error.FoursquareException;
 import com.joelapenna.foursquare.types.Checkin;
 import com.joelapenna.foursquare.types.CheckinResult;
-import com.joelapenna.foursquare.types.City;
 import com.joelapenna.foursquare.types.Credentials;
 import com.joelapenna.foursquare.types.Group;
 import com.joelapenna.foursquare.types.Tip;
 import com.joelapenna.foursquare.types.User;
 import com.joelapenna.foursquare.types.Venue;
+
+import android.net.Uri;
+import android.text.TextUtils;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -26,7 +28,7 @@ import java.util.logging.Logger;
 public class Foursquare {
     private static final Logger LOG = Logger.getLogger("com.joelapenna.foursquare");
     public static final boolean DEBUG = true;
-    public static final boolean PARSER_DEBUG = false;
+    public static final boolean PARSER_DEBUG = true;
 
     public static final String FOURSQUARE_API_DOMAIN = "api.foursquare.com";
 
@@ -43,7 +45,6 @@ public class Foursquare {
     private FoursquareHttpApiV1 mFoursquareV1;
 
     @V1
-    @Classic
     public Foursquare(FoursquareHttpApiV1 httpApi) {
         mFoursquareV1 = httpApi;
     }
@@ -90,16 +91,19 @@ public class Foursquare {
     }
 
     @V1
-    public Tip addTip(String vid, String text, String type) throws FoursquareException,
-            FoursquareError, IOException {
-        return mFoursquareV1.addtip(vid, text, type);
+    public Tip addTip(String vid, String text, String type, Location location)
+            throws FoursquareException, FoursquareError, IOException {
+        return mFoursquareV1.addtip(vid, text, type, location.mGeolat, location.mGeolong,
+                location.mGeohacc, location.mGeovacc, location.mGeoalt);
     }
 
     @V1
     public Venue addVenue(String name, String address, String crossstreet, String city,
-            String state, String zip, String cityid, String phone, Location location)
-            throws FoursquareException, FoursquareError, IOException {
-        return mFoursquareV1.addvenue(name, address, crossstreet, city, state, zip, cityid, phone);
+            String state, String zip, String phone, Location location) throws FoursquareException,
+            FoursquareError, IOException {
+        return mFoursquareV1.addvenue(name, address, crossstreet, city, state, zip, phone,
+                location.mGeolat, location.mGeolong, location.mGeohacc, location.mGeovacc,
+                location.mGeoalt);
     }
 
     @V1
@@ -111,26 +115,17 @@ public class Foursquare {
     }
 
     @V1
-    public Group<Checkin> checkins(String cityId, Location location) throws FoursquareException,
+    public Group<Checkin> checkins(Location location) throws FoursquareException, FoursquareError,
+            IOException {
+        return mFoursquareV1.checkins(location.mGeolat, location.mGeolong, location.mGeohacc,
+                location.mGeovacc, location.mGeoalt);
+    }
+
+    @V1
+    public Group<User> friends(String userId, Location location) throws FoursquareException,
             FoursquareError, IOException {
-        if (location != null) {
-            return mFoursquareV1.checkins(cityId, location.mGeolat, location.mGeolong,
-                    location.mGeohacc, location.mGeovacc, location.mGeoalt);
-        } else {
-            return mFoursquareV1.checkins(cityId, null, null, null, null, null);
-        }
-    }
-
-    @V1
-    public City checkCity(Location location) throws FoursquareException, FoursquareError,
-            IOException {
-        return mFoursquareV1.checkcity(location.mGeolat, location.mGeolong);
-    }
-
-    @V1
-    public Group<User> friends(String userId) throws FoursquareException, FoursquareError,
-            IOException {
-        return mFoursquareV1.friends(userId);
+        return mFoursquareV1.friends(userId, location.mGeolat, location.mGeolong,
+                location.mGeohacc, location.mGeovacc, location.mGeoalt);
     }
 
     @V1
@@ -157,11 +152,6 @@ public class Foursquare {
     }
 
     @V1
-    public City switchCity(String cityId) throws FoursquareException, FoursquareError, IOException {
-        return mFoursquareV1.switchcity(cityId);
-    }
-
-    @V1
     public Group<Group<Tip>> tips(Location location, int limit) throws FoursquareException,
             FoursquareError, IOException {
         return mFoursquareV1.tips(location.mGeolat, location.mGeolong, location.mGeohacc,
@@ -169,14 +159,21 @@ public class Foursquare {
     }
 
     @V1
-    public User user(String user, boolean mayor, boolean badges) throws FoursquareException,
-            FoursquareError, IOException {
-        return mFoursquareV1.user(user, mayor, badges);
+    public User user(String user, boolean mayor, boolean badges, Location location)
+            throws FoursquareException, FoursquareError, IOException {
+        if (location != null) {
+            return mFoursquareV1.user(user, mayor, badges, location.mGeolat, location.mGeolong,
+                    location.mGeohacc, location.mGeovacc, location.mGeoalt);
+        } else {
+            return mFoursquareV1.user(user, mayor, badges, null, null, null, null, null);
+        }
     }
 
     @V1
-    public Venue venue(String id) throws FoursquareException, FoursquareError, IOException {
-        return mFoursquareV1.venue(id);
+    public Venue venue(String id, Location location) throws FoursquareException, FoursquareError,
+            IOException {
+        return mFoursquareV1.venue(id, location.mGeolat, location.mGeolong, location.mGeohacc,
+                location.mGeovacc, location.mGeoalt);
     }
 
     @V1
@@ -184,17 +181,6 @@ public class Foursquare {
             throws FoursquareException, FoursquareError, IOException {
         return mFoursquareV1.venues(location.mGeolat, location.mGeolong, location.mGeohacc,
                 location.mGeovacc, location.mGeoalt, query, limit);
-    }
-
-    @Classic
-    public String checkinResultUrl(String userId, String checkinId) {
-        StringBuffer sb = new StringBuffer();
-        sb.append("http://foursquare.com./incoming/breakdown");
-        sb.append("?client=iphone&uid=");
-        sb.append(userId);
-        sb.append("&cid=");
-        sb.append(checkinId);
-        return sb.toString();
     }
 
     public static final FoursquareHttpApiV1 createHttpApi(String domain, String clientVersion,
@@ -207,17 +193,34 @@ public class Foursquare {
         return createHttpApi(FOURSQUARE_API_DOMAIN, clientVersion, useOAuth);
     }
 
+    public static final String createLeaderboardUrl(String userId, Location location) {
+        Uri.Builder builder = new Uri.Builder() //
+                .scheme("http") //
+                .authority("foursquare.com") //
+                .appendEncodedPath("/iphone/me") //
+                .appendQueryParameter("view", "all") //
+                .appendQueryParameter("scope", "friends") //
+                .appendQueryParameter("uid", userId);
+        if (!TextUtils.isEmpty(location.mGeolat)) {
+            builder.appendQueryParameter("geolat", location.mGeolat);
+        }
+        if (!TextUtils.isEmpty(location.mGeolong)) {
+            builder.appendQueryParameter("geolong", location.mGeolong);
+        }
+        if (!TextUtils.isEmpty(location.mGeohacc)) {
+            builder.appendQueryParameter("geohacc", location.mGeohacc);
+        }
+        if (!TextUtils.isEmpty(location.mGeovacc)) {
+            builder.appendQueryParameter("geovacc", location.mGeovacc);
+        }
+        return builder.build().toString();
+    }
+
     /**
      * This api is supported in the V1 API documented at:
      * http://groups.google.com/group/foursquare-api/web/api-documentation
      */
     @interface V1 {
-    }
-
-    /**
-     * This api was reverse engineered from the iPhone app.
-     */
-    @interface Classic {
     }
 
     public static class Location {

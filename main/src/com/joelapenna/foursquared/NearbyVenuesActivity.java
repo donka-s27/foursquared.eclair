@@ -10,7 +10,9 @@ import com.joelapenna.foursquare.types.City;
 import com.joelapenna.foursquare.types.Group;
 import com.joelapenna.foursquare.types.Venue;
 import com.joelapenna.foursquared.app.LoadableListActivity;
+import com.joelapenna.foursquared.error.LocationException;
 import com.joelapenna.foursquared.location.BestLocationListener;
+import com.joelapenna.foursquared.location.LocationUtils;
 import com.joelapenna.foursquared.util.Comparators;
 import com.joelapenna.foursquared.util.MenuUtils;
 import com.joelapenna.foursquared.util.NotificationsUtil;
@@ -46,31 +48,22 @@ import java.util.Observer;
  */
 public class NearbyVenuesActivity extends LoadableListActivity {
     static final String TAG = "NearbyVenuesActivity";
-
     static final boolean DEBUG = FoursquaredSettings.DEBUG;
 
     public static final long DELAY_TIME_IN_MS = 2000;
 
     private static final int MENU_REFRESH = 0;
-
     private static final int MENU_ADD_VENUE = 1;
-
     private static final int MENU_SEARCH = 2;
-
     private static final int MENU_MYINFO = 3;
 
     private SearchTask mSearchTask;
-
     private SearchHolder mSearchHolder = new SearchHolder();
-
     private SearchHandler mSearchHandler = new SearchHandler();
-
     private SearchLocationObserver mSearchLocationObserver = new SearchLocationObserver();
-
     private SearchResultsObservable mSearchResultsObservable = new SearchResultsObservable();
 
     private ListView mListView;
-
     private SeparatedListAdapter mListAdapter;
 
     private BroadcastReceiver mLoggedOutReceiver = new BroadcastReceiver() {
@@ -195,16 +188,18 @@ public class NearbyVenuesActivity extends LoadableListActivity {
     }
 
     public void putSearchResultsInAdapter(Group<Group<Venue>> searchResults) {
-        setEmptyView();
-        mListAdapter.clear();
-        int groupCount = searchResults.size();
-        for (int groupsIndex = 0; groupsIndex < groupCount; groupsIndex++) {
-            Group<Venue> group = searchResults.get(groupsIndex);
-            if (group.size() > 0) {
-                VenueListAdapter groupAdapter = new VenueListAdapter(this);
-                groupAdapter.setGroup(group);
-                if (DEBUG) Log.d(TAG, "Adding Section: " + group.getType());
-                mListAdapter.addSection(group.getType(), groupAdapter);
+        Log.d(TAG, "putSearchResultsInAdapter");
+        if (searchResults != null) {
+            mListAdapter.clear();
+            int groupCount = searchResults.size();
+            for (int groupsIndex = 0; groupsIndex < groupCount; groupsIndex++) {
+                Group<Venue> group = searchResults.get(groupsIndex);
+                if (group.size() > 0) {
+                    VenueListAdapter groupAdapter = new VenueListAdapter(this);
+                    groupAdapter.setGroup(group);
+                    if (DEBUG) Log.d(TAG, "Adding Section: " + group.getType());
+                    mListAdapter.addSection(group.getType(), groupAdapter);
+                }
             }
         }
         mListAdapter.notifyDataSetInvalidated();
@@ -240,6 +235,7 @@ public class NearbyVenuesActivity extends LoadableListActivity {
             if (DEBUG) Log.d(TAG, "SearchTask: onPreExecute()");
             setProgressBarIndeterminateVisibility(true);
             ensureTitle(false);
+            setLoadingView();
         }
 
         @Override
@@ -257,42 +253,25 @@ public class NearbyVenuesActivity extends LoadableListActivity {
             try {
                 if (groups == null) {
                     NotificationsUtil.ToastReasonForFailure(NearbyVenuesActivity.this, mReason);
-                } else {
-                    setSearchResults(groups);
                 }
+                setSearchResults(groups);
 
             } finally {
                 setProgressBarIndeterminateVisibility(false);
                 ensureTitle(true);
+                setEmptyView();
             }
         }
 
-        public Group<Group<Venue>> search() throws FoursquareException, IOException {
-            if (DEBUG) Log.d(TAG, "SearchTask.search()");
-            Foursquared foursquared = (Foursquared) getApplication();
-            Foursquare foursquare = foursquared.getFoursquare();
-            Location location = foursquared.getLastKnownLocation();
+        public Group<Group<Venue>> search() throws FoursquareException, LocationException,
+                IOException {
+            Foursquare foursquare = ((Foursquared) getApplication()).getFoursquare();
+            Location location = ((Foursquared) getApplication()).getLastKnownLocation();
 
-            String geolat;
-            String geolong;
-            if (location == null) {
-                if (DEBUG) Log.d(TAG, "SearchTask.search(): doing user lookup");
-                // Foursquare requires a lat, lng for a venue search, so we have
-                // to pull it from the
-                // server if we cannot determine it locally.
-                City city = foursquare.user(null, false, false).getCity();
-                geolat = String.valueOf(city.getGeolat());
-                geolong = String.valueOf(city.getGeolong());
-            } else {
-                if (DEBUG) Log.d(TAG, "SearchTask.search(): searching with location: " + location);
-                geolat = String.valueOf(location.getLatitude());
-                geolong = String.valueOf(location.getLongitude());
-            }
-            if (DEBUG) Log.d(TAG, "SearchTask.search(): executing: " + geolat + ", " + geolong);
-            Group<Group<Venue>> groups = foursquare.venues(
-                    new Foursquare.Location(geolat, geolong), mSearchHolder.query, 30);
+            Group<Group<Venue>> groups = foursquare.venues(LocationUtils
+                    .createFoursquareLocation(location), mSearchHolder.query, 30);
             for (int i = 0; i < groups.size(); i++) {
-                Collections.sort(groups.get(i), Comparators.getVenueNameComparator());
+                Collections.sort(groups.get(i), Comparators.getVenueDistanceComparator());
             }
             return groups;
         }
@@ -301,9 +280,7 @@ public class NearbyVenuesActivity extends LoadableListActivity {
     private class SearchHandler extends Handler {
 
         public static final int MESSAGE_FORCE_SEARCH = 0;
-
         public static final int MESSAGE_STOP_SEARCH = 1;
-
         public static final int MESSAGE_SEARCH = 2;
 
         private boolean mFirstSearchCompleted = false;
@@ -372,7 +349,6 @@ public class NearbyVenuesActivity extends LoadableListActivity {
 
     private static class SearchHolder {
         Group<Group<Venue>> results;
-
         String query;
     }
 }

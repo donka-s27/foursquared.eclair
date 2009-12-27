@@ -10,6 +10,8 @@ import com.joelapenna.foursquare.types.Checkin;
 import com.joelapenna.foursquare.types.Group;
 import com.joelapenna.foursquared.R.drawable;
 import com.joelapenna.foursquared.app.LoadableListActivity;
+import com.joelapenna.foursquared.error.LocationException;
+import com.joelapenna.foursquared.location.LocationUtils;
 import com.joelapenna.foursquared.util.Comparators;
 import com.joelapenna.foursquared.util.MenuUtils;
 import com.joelapenna.foursquared.util.NotificationsUtil;
@@ -43,7 +45,6 @@ import java.util.Observable;
  */
 public class FriendsActivity extends LoadableListActivity {
     static final String TAG = "FriendsActivity";
-
     static final boolean DEBUG = FoursquaredSettings.DEBUG;
 
     public static final String QUERY_NEARBY = null;
@@ -51,24 +52,13 @@ public class FriendsActivity extends LoadableListActivity {
     public static SearchResultsObservable searchResultsObservable;
 
     private static final int MENU_REFRESH = 1;
-
     private static final int MENU_SHOUT = 2;
-
     private static final int MENU_STATS = 3;
-
     private static final int MENU_MYINFO = 4;
-
     private static final int MENU_GROUP_SEARCH = 0;
 
     private SearchTask mSearchTask;
-
     private SearchHolder mSearchHolder = new SearchHolder();
-
-    private LinearLayout mEmpty;
-
-    private TextView mEmptyText;
-
-    private ProgressBar mEmptyProgress;
 
     private CheckinListAdapter mListAdapter;
 
@@ -179,10 +169,6 @@ public class FriendsActivity extends LoadableListActivity {
     }
 
     private void initListViewAdapter() {
-        mEmpty = (LinearLayout) findViewById(android.R.id.empty);
-        mEmptyText = (TextView) findViewById(R.id.emptyText);
-        mEmptyProgress = (ProgressBar) findViewById(R.id.emptyProgress);
-
         mListAdapter = new CheckinListAdapter(this, //
                 ((Foursquared) getApplication()).getRemoteResourceManager());
 
@@ -203,24 +189,15 @@ public class FriendsActivity extends LoadableListActivity {
     }
 
     private void putSearchResultsInAdapter(Group<Checkin> searchResults) {
-        setEmptyView();
-        mListAdapter.setGroup(searchResults);
+        if (searchResults != null) {
+            mListAdapter.setGroup(searchResults);
+        }
     }
 
     private void setSearchResults(Group<Checkin> searchResults) {
         if (DEBUG) Log.d(TAG, "Setting search results.");
         mSearchHolder.results = searchResults;
         searchResultsObservable.notifyObservers();
-    }
-
-    private void ensureSearchResults() {
-        if (mListAdapter.getCount() > 0) {
-            mEmpty.setVisibility(LinearLayout.GONE);
-        } else {
-            mEmptyText.setText("No search results.");
-            mEmptyProgress.setVisibility(LinearLayout.GONE);
-            mEmpty.setVisibility(LinearLayout.VISIBLE);
-        }
     }
 
     private void executeSearchTask(String query) {
@@ -260,6 +237,7 @@ public class FriendsActivity extends LoadableListActivity {
             if (DEBUG) Log.d(TAG, "SearchTask: onPreExecute()");
             setProgressBarIndeterminateVisibility(true);
             ensureTitle(false);
+            setLoadingView();
         }
 
         @Override
@@ -277,22 +255,23 @@ public class FriendsActivity extends LoadableListActivity {
             try {
                 if (checkins == null) {
                     NotificationsUtil.ToastReasonForFailure(FriendsActivity.this, mReason);
-                } else {
-                    setSearchResults(checkins);
-                    putSearchResultsInAdapter(checkins);
                 }
+                setSearchResults(checkins);
+                putSearchResultsInAdapter(checkins);
 
             } finally {
                 setProgressBarIndeterminateVisibility(false);
                 ensureTitle(true);
-                ensureSearchResults();
+                setEmptyView();
             }
         }
 
-        Group<Checkin> search() throws FoursquareException, IOException {
+        Group<Checkin> search() throws FoursquareException, LocationException, IOException {
             Foursquare foursquare = ((Foursquared) getApplication()).getFoursquare();
             Group<Checkin> checkins;
-            checkins = foursquare.checkins(null, null);
+            checkins = foursquare.checkins(LocationUtils
+                    .createFoursquareLocation(((Foursquared) getApplication())
+                            .getLastKnownLocation()));
             Collections.sort(checkins, Comparators.getCheckinRecencyComparator());
             return checkins;
         }
@@ -300,7 +279,6 @@ public class FriendsActivity extends LoadableListActivity {
 
     private static class SearchHolder {
         Group<Checkin> results;
-
         String query;
     }
 

@@ -4,6 +4,11 @@
 
 package com.joelapenna.foursquared;
 
+import com.joelapenna.foursquare.Foursquare;
+import com.joelapenna.foursquared.error.LocationException;
+import com.joelapenna.foursquared.location.LocationUtils;
+import com.joelapenna.foursquared.util.NotificationsUtil;
+
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -41,17 +46,21 @@ public class StatsActivity extends Activity {
 
         setTitle("Foursquare Scoreboard");
 
-        WebView webView = (WebView)findViewById(R.id.webView);
+        WebView webView = (WebView) findViewById(R.id.webView);
         webView.setWebViewClient(new MyWebViewClient());
         webView.setWebChromeClient(new MyWebChromeClient());
 
-        String userId = ((Foursquared)getApplication()).getUserId();
-        String cityId = ((Foursquared)getApplication()).getUserCity().getId();
-
-        String url = "http://foursquare.com/iphone/me?view=all&scope=friends&uid=" + userId
-                + "&cityid=" + cityId;
-        Log.d(TAG, url);
-        webView.loadUrl(url);
+        Foursquared foursquared = ((Foursquared) getApplication());
+        String userId = ((Foursquared) getApplication()).getUserId();
+        try {
+            String url = Foursquare.createLeaderboardUrl(userId, LocationUtils
+                    .createFoursquareLocation(foursquared.getLastKnownLocation()));
+            Log.d(TAG, url);
+            webView.loadUrl(url);
+        } catch (LocationException e) {
+            NotificationsUtil.ToastReasonForFailure(this, e);
+            finish();
+        }
     }
 
     @Override
