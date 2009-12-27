@@ -85,12 +85,22 @@ public class AuthenticationService extends Service {
         }
     }
 
+    /**
+     * Binder implementation for account authentication that adds foursquare
+     * accounts to system accounts. {@inheritDoc}
+     * 
+     * @author Joe LaPenna (joe@joelapenna.com)
+     */
     public class AccountAuthenticator extends AbstractAccountAuthenticator {
 
         public AccountAuthenticator(Context context) {
             super(context);
         }
 
+        /**
+         * Add an account if we get options with a username/password, or prompt
+         * the user with LoginActivity. {@inheritDoc}
+         */
         @Override
         public Bundle addAccount(AccountAuthenticatorResponse response, String accountType,
                 String authTokenType, String[] requiredFeatures, Bundle options)
@@ -130,6 +140,11 @@ public class AuthenticationService extends Service {
             return result;
         }
 
+        /**
+         * Because we haven't implemented any way to confirm credentials, don't
+         * even try and return success (KEY_BOOLEAN_RESULT) on
+         * confirmCredentials requests. {@inheritDoc}
+         */
         @Override
         public Bundle confirmCredentials(AccountAuthenticatorResponse response, Account account,
                 Bundle options) throws NetworkErrorException {
@@ -139,12 +154,22 @@ public class AuthenticationService extends Service {
             return result;
         }
 
+        /**
+         * Since there are no properties, return success (KEY_BOOLEAN_RESULT) on
+         * editProperties requests. {@inheritDoc}
+         */
         @Override
         public Bundle editProperties(AccountAuthenticatorResponse response, String accountType) {
             Log.d(TAG, "editProperties");
-            return new Bundle();
+            Bundle result = new Bundle();
+            result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
+            return result;
         }
 
+        /**
+         * We could use this to implement oAuth support, but we don't use it for
+         * now so we send a fake auth token. {@inheritDoc}
+         */
         @Override
         public Bundle getAuthToken(AccountAuthenticatorResponse response, Account account,
                 String authTokenType, Bundle options) throws NetworkErrorException {
@@ -156,12 +181,18 @@ public class AuthenticationService extends Service {
             return result;
         }
 
+        /**
+         * We don't have auth token types; always return null. {@inheritDoc}
+         */
         @Override
         public String getAuthTokenLabel(String authTokenType) {
             Log.d(TAG, "getAuthTokenLabel");
             return null;
         }
 
+        /**
+         * We don't support any features so always say we don't. {@inheritDoc}
+         */
         @Override
         public Bundle hasFeatures(AccountAuthenticatorResponse response, Account account,
                 String[] features) throws NetworkErrorException {
@@ -171,13 +202,17 @@ public class AuthenticationService extends Service {
             return result;
         }
 
+        /**
+         * We don't support updating credentials either, so return an error.
+         * {@inheritDoc}
+         */
         @Override
         public Bundle updateCredentials(AccountAuthenticatorResponse response, Account account,
                 String authTokenType, Bundle options) throws NetworkErrorException {
             Log.d(TAG, "updateCredentials");
             Bundle result = new Bundle();
-            result.putString(AccountManager.KEY_ACCOUNT_NAME, account.name);
-            result.putString(AccountManager.KEY_ACCOUNT_TYPE, account.type);
+            result.putInt(AccountManager.KEY_ERROR_CODE, -1);
+            result.putString(AccountManager.KEY_ERROR_MESSAGE, "Error!");
             return result;
         }
     }
